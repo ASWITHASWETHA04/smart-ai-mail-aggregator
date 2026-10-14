@@ -1,0 +1,92 @@
+# SmartMail AI — Local Full-Stack Container Orchestration
+services:
+  # 1. PostgreSQL Database Service (RDS Compatibility Target)
+  postgres:
+    image: postgres:16-alpine
+    container_name: smartmail-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartmail_db
+      POSTGRES_USER: smartmail_user
+      POSTGRES_PASSWORD: smartmail_secure_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartmail_user -d smartmail_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smartmail-net
+
+  # 2. Redis Cache Service (ElastiCache Compatibility Target)
+  redis:
+    image: redis:7-alpine
+    container_name: smartmail-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smartmail-net
+
+  # 3. Flask Backend Service (ECS Fargate Compatibility Target)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smartmail-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://smartmail_user:smartmail_secure_pass@postgres:5432/smartmail_db
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
+      SECRET_KEY: local-docker-compose-app-secret-key-32chars
+      JWT_SECRET_KEY: local-docker-compose-jwt-secret-key-32chars
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173,http://127.0.0.1:8080
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-placeholder_for_local_testing}
+      OPENAI_MODEL: gpt-4o-mini
+    ports:
+      - "5000:5000"
+    networks:
+      - smartmail-net
+
+  # 4. React Static Frontend Service (S3 / CloudFront Compatibility Target)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:5000
+    container_name: smartmail-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    networks:
+      - smartmail-net
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  smartmail-net:
+    driver: bridge

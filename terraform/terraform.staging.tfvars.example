@@ -1,0 +1,44 @@
+# SmartMail AI — Staging Terraform Configuration Variables Template
+# Copy this file to 'terraform.staging.tfvars' when planning/deploying staging.
+# Usage: terraform plan -var-file=terraform.staging.tfvars
+# NEVER commit 'terraform.staging.tfvars' containing real sensitive values!
+
+aws_region      = "us-east-1"
+environment     = "staging"
+app_name        = "smartmail-ai"
+
+# Mandatory Account Guardrail (Restricts execution strictly to this staging AWS Account ID)
+allowed_account_id = "" # Replace with authorized 12-digit staging account ID (e.g. "123456789012")
+
+# Dedicated Staging Networking Configuration (Independent CIDR space)
+vpc_cidr               = "10.1.0.0/16"
+availability_zones     = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs    = ["10.1.1.0/24", "10.1.2.0/24"]
+private_subnet_cidrs   = ["10.1.10.0/24", "10.1.11.0/24"]
+database_subnet_cidrs  = ["10.1.20.0/24", "10.1.21.0/24"]
+
+# ECS Fargate Staging Configuration (Cost-optimized: 1 task baseline)
+container_port  = 5000
+container_cpu   = 256  # 0.25 vCPU
+container_memory = 512 # 512 MB
+desired_count   = 1    # Single task for staging cost control
+min_capacity    = 1
+max_capacity    = 2
+
+# Amazon RDS PostgreSQL Staging Configuration
+db_instance_class          = "db.t4g.micro"
+db_name                    = "smartmail_staging_db"
+db_username                = "smartmail_staging_admin"
+enable_deletion_protection = false  # Permits controlled staging lifecycle teardown
+
+# Amazon ElastiCache Redis Staging Configuration
+redis_node_type            = "cache.t4g.micro"
+
+# Observability (Cost-optimized: 7 days retention for staging)
+log_retention_days         = 7
+
+# Optional Domain & SSL Certificate ARN from AWS Certificate Manager (ACM)
+certificate_arn            = ""
+
+# GitHub Repository for Staging OIDC Deployment Role
+github_repo                = "wipro-org/smartmail-ai"

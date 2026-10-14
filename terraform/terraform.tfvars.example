@@ -1,0 +1,38 @@
+# SmartMail AI — Terraform Configuration Variables Template
+# Copy this file to 'terraform.tfvars' and supply your deployment values.
+# NEVER commit 'terraform.tfvars' containing real values to source control!
+
+aws_region      = "us-east-1"
+environment     = "production"
+app_name        = "smartmail-ai"
+
+# Networking Configuration
+vpc_cidr               = "10.0.0.0/16"
+availability_zones     = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs    = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs   = ["10.0.10.0/24", "10.0.11.0/24"]
+database_subnet_cidrs  = ["10.0.20.0/24", "10.0.21.0/24"]
+
+# ECS Fargate Configuration
+container_port  = 5000
+container_cpu   = 256  # 0.25 vCPU
+container_memory = 512 # 512 MB
+desired_count   = 2
+min_capacity    = 1
+max_capacity    = 4
+
+# Amazon RDS PostgreSQL Configuration
+db_instance_class          = "db.t4g.micro" # Cost-effective ARM-based Graviton2
+db_name                    = "smartmail_db"
+db_username                = "smartmail_admin"
+enable_deletion_protection = true
+
+# Amazon ElastiCache Redis Configuration
+redis_node_type            = "cache.t4g.micro"
+
+# Observability
+log_retention_days         = 30
+
+# Optional Domain & SSL Certificate ARN from AWS Certificate Manager (ACM)
+# Leave blank to test with ALB direct HTTP routing before custom domain setup
+certificate_arn            = ""

@@ -1,0 +1,357 @@
+name: SmartMail AI CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      deploy_to_staging:
+        description: 'Deploy to AWS Staging Environment'
+        required: false
+        type: boolean
+        default: false
+      deploy_to_production:
+        description: 'Deploy to AWS Production Environment'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # -------------------------------------------------------------
+  # 1. Backend Unit, Integration, & Security Tests
+  # -------------------------------------------------------------
+  backend-test:
+    name: Backend Test Suite
+    runs-on: ubuntu-latest
+    env:
+      FLASK_ENV: testing
+      SECRET_KEY: test-ci-secret-key-at-least-32-chars-long
+      JWT_SECRET_KEY: test-ci-jwt-secret-key-at-least-32-chars-long
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-mock
+
+      - name: Run Test Suite
+        run: |
+          pytest backend/tests -v --durations=10
+
+  # -------------------------------------------------------------
+  # 2. Frontend Linting & Production Build Verification
+  # -------------------------------------------------------------
+  frontend-build:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Lint Code
+        run: npm run lint
+
+      - name: Verify TypeScript & Build Static Assets
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.smartmail.internal
+
+  # -------------------------------------------------------------
+  # 3. Infrastructure as Code (Terraform) Validation
+  # -------------------------------------------------------------
+  terraform-validate:
+    name: Terraform Format & Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Check Terraform Formatting
+        run: terraform fmt -check -diff
+
+      - name: Initialize Terraform Providers
+        run: terraform init -backend=false
+
+      - name: Validate Terraform Syntax & Configuration
+        run: terraform validate
+
+  # -------------------------------------------------------------
+  # 4. Container Build & Packaging Validation
+  # -------------------------------------------------------------
+  docker-validate:
+    name: Docker Image Build Checks
+    needs: [backend-test, frontend-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: smartmail-ai-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          tags: smartmail-ai-frontend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # -------------------------------------------------------------
+  # 5. Staging AWS Deployment (Dedicated Staging Environment)
+  # -------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to AWS Staging
+    needs: [backend-test, frontend-build, terraform-validate, docker-validate]
+    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_staging == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.STAGING_CLOUDFRONT_DOMAIN || vars.CLOUDFRONT_DOMAIN }}
+    permissions:
+      id-token: write # Scoped strictly to staging deployment
+      contents: read
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via GitHub OIDC (No Static Keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_STAGING_ROLE_ARN || secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          role-session-name: GitHubActions-SmartMailAI-Staging-Deploy
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Backend Image to Staging ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_STAGING_REPOSITORY || vars.ECR_REPOSITORY || 'smartmail-ai-backend' }}
+          IMAGE_TAG: staging-${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:staging-latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:staging-latest
+
+      - name: Run Database Migrations (Controlled Staging Task)
+        env:
+          CLUSTER_NAME: ${{ vars.ECS_STAGING_CLUSTER_NAME || 'smartmail-ai-staging-cluster' }}
+          TASK_DEF_FAMILY: ${{ vars.ECS_STAGING_TASK_FAMILY || 'smartmail-ai-staging-task' }}
+          PRIVATE_SUBNETS: ${{ vars.ECS_STAGING_PRIVATE_SUBNETS || vars.ECS_PRIVATE_SUBNETS || 'subnet-staging' }}
+          SECURITY_GROUPS: ${{ vars.ECS_STAGING_SECURITY_GROUPS || vars.ECS_SECURITY_GROUPS || 'sg-staging' }}
+        run: |
+          echo "Executing controlled staging database migration..."
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER_NAME" \
+            --task-definition "$TASK_DEF_FAMILY" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides": [{"name": "backend", "command": ["flask", "db", "upgrade"]}]}' \
+            --started-by "GitHubActions-Staging-Migration" \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "::error::Failed to launch staging database migration task."
+            exit 1
+          fi
+          echo "Staging migration task submitted: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster "$CLUSTER_NAME" --tasks "$TASK_ARN"
+          
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER_NAME" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Staging database migration failed with exit code $EXIT_CODE. Staging deployment aborted!"
+            exit 1
+          fi
+          echo "Staging database migration succeeded with exit code 0."
+
+      - name: Update Amazon ECS Staging Service
+        env:
+          CLUSTER_NAME: ${{ vars.ECS_STAGING_CLUSTER_NAME || 'smartmail-ai-staging-cluster' }}
+          SERVICE_NAME: ${{ vars.ECS_STAGING_SERVICE_NAME || 'smartmail-ai-staging-service' }}
+        run: |
+          echo "Triggering rolling deployment for staging service $SERVICE_NAME..."
+          aws ecs update-service \
+            --cluster "$CLUSTER_NAME" \
+            --service "$SERVICE_NAME" \
+            --force-new-deployment
+          
+          echo "Waiting for Amazon ECS staging service to achieve healthy state..."
+          aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME"
+          echo "Staging ECS service rollout verified healthy and stable."
+
+      - name: Build and Sync Frontend to Staging S3
+        env:
+          S3_BUCKET: ${{ vars.S3_STAGING_FRONTEND_BUCKET || vars.S3_FRONTEND_BUCKET }}
+          CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_STAGING_DISTRIBUTION_ID || vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || vars.STAGING_API_BASE_URL }}
+        run: |
+          cd frontend
+          if [ -z "$VITE_API_BASE_URL" ] || [ "$VITE_API_BASE_URL" = "http://localhost:5000" ]; then
+            echo "::error::CRITICAL: VITE_API_BASE_URL is not configured for staging deployment. Refusing to build bundle with localhost fallback."
+            exit 1
+          fi
+          npm ci
+          STRICT_API_URL=true VITE_API_BASE_URL="$VITE_API_BASE_URL" npm run build
+          aws s3 sync dist/ s3://$S3_BUCKET/ --delete
+          if [ -n "$CLOUDFRONT_DIST_ID" ]; then
+            aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths "/*"
+          fi
+
+  # -------------------------------------------------------------
+  # 6. Production AWS Deployment (Gated by Staging and Explicit Input)
+  # -------------------------------------------------------------
+  deploy-production:
+    name: Deploy to AWS Production
+    needs: [backend-test, frontend-build, terraform-validate, docker-validate, deploy-staging]
+    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.CLOUDFRONT_DOMAIN }}
+    permissions:
+      id-token: write # Strictly scoped to production deployment job
+      contents: read
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via GitHub OIDC (No Static Keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          role-session-name: GitHubActions-SmartMailAI-Deploy
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Backend Image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'smartmail-ai-backend' }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Run Database Migrations (Controlled Pre-Deployment Task)
+        env:
+          CLUSTER_NAME: ${{ vars.ECS_CLUSTER_NAME || 'smartmail-ai-production-cluster' }}
+          TASK_DEF_FAMILY: ${{ vars.ECS_TASK_FAMILY || 'smartmail-ai-production-task' }}
+          PRIVATE_SUBNETS: ${{ vars.ECS_PRIVATE_SUBNETS || 'subnet-12345' }}
+          SECURITY_GROUPS: ${{ vars.ECS_SECURITY_GROUPS || 'sg-12345' }}
+        run: |
+          echo "Executing controlled database schema migration on Amazon ECS Fargate..."
+          # Runs 'flask db upgrade' as an isolated, single-execution ECS Fargate task
+          # preventing concurrent worker migrations and guaranteeing schema readiness
+          # before user-facing container instances are updated.
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER_NAME" \
+            --task-definition "$TASK_DEF_FAMILY" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides": [{"name": "backend", "command": ["flask", "db", "upgrade"]}]}' \
+            --started-by "GitHubActions-Migration" \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "::error::Failed to launch database migration task on Amazon ECS."
+            exit 1
+          fi
+          echo "Migration task successfully submitted: $TASK_ARN"
+          echo "Waiting for migration task to execute and reach STOPPED status..."
+          aws ecs wait tasks-stopped --cluster "$CLUSTER_NAME" --tasks "$TASK_ARN"
+          
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER_NAME" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            STOPPED_REASON=$(aws ecs describe-tasks --cluster "$CLUSTER_NAME" --tasks "$TASK_ARN" --query 'tasks[0].stoppedReason' --output text)
+            echo "::error::Database migration task failed with exit code $EXIT_CODE. Reason: $STOPPED_REASON. Deployment aborted!"
+            exit 1
+          fi
+          echo "Database migration task succeeded with exit code 0. Proceeding with service rollout."
+
+      - name: Update Amazon ECS Fargate Service
+        env:
+          CLUSTER_NAME: ${{ vars.ECS_CLUSTER_NAME || 'smartmail-ai-production-cluster' }}
+          SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME || 'smartmail-ai-production-service' }}
+        run: |
+          echo "Triggering rolling deployment for service $SERVICE_NAME..."
+          aws ecs update-service \
+            --cluster "$CLUSTER_NAME" \
+            --service "$SERVICE_NAME" \
+            --force-new-deployment
+          
+          echo "Waiting for Amazon ECS service to achieve healthy and stable state..."
+          aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME"
+          echo "ECS service rollout verified healthy and stable."
+
+
+      - name: Build and Sync Frontend to S3
+        env:
+          S3_BUCKET: ${{ vars.S3_FRONTEND_BUCKET }}
+          CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || vars.PROD_API_BASE_URL }}
+        run: |
+          cd frontend
+          if [ -z "$VITE_API_BASE_URL" ] || [ "$VITE_API_BASE_URL" = "http://localhost:5000" ]; then
+            echo "::error::CRITICAL: VITE_API_BASE_URL is not configured for production deployment. Refusing to build bundle with localhost fallback."
+            exit 1
+          fi
+          npm ci
+          STRICT_API_URL=true VITE_API_BASE_URL="$VITE_API_BASE_URL" npm run build
+          aws s3 sync dist/ s3://$S3_BUCKET/ --delete
+          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths "/*"
