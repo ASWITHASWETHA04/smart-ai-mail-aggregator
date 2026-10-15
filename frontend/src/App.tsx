@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
-  Brain, 
   Database, 
-  Cloud, 
   ShieldCheck, 
   CheckCircle2, 
   AlertCircle, 
@@ -14,7 +12,6 @@ import {
   Check, 
   LogIn, 
   LogOut, 
-  User as UserIcon, 
   Sliders,
   Send,
   BarChart3,
@@ -758,8 +755,21 @@ export const App: React.FC = () => {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
               <Mail className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="flex items-center gap-2.5">
               <span className="font-bold text-lg tracking-tight text-white">SmartMail AI</span>
+              <div 
+                className={`hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                  healthLoading 
+                    ? 'bg-slate-800 text-slate-400 border-slate-700' 
+                    : health?.status === 'healthy' 
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                }`}
+                title={health ? `Backend ${health.service} (${health.environment}) v${health.version}` : 'Connecting to API...'}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${healthLoading ? 'bg-amber-400 animate-pulse' : health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                <span>{healthLoading ? 'Connecting...' : health?.status === 'healthy' ? 'API Online' : 'API Offline'}</span>
+              </div>
             </div>
           </div>
 
@@ -903,9 +913,9 @@ export const App: React.FC = () => {
                           </div>
                           <div className="bg-slate-900 p-2 rounded-lg border border-slate-800/80">
                             <span className="text-slate-500 block">Database Type</span>
-                            <span className="font-semibold text-slate-200 flex items-center gap-1">
-                              <Database className="w-2.5 h-2.5 text-emerald-400" />
-                              SQLite ACID
+                            <span className="font-semibold text-slate-200 flex items-center gap-1 truncate" title={currentUser.storage?.database_type || 'PostgreSQL'}>
+                              <Database className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                              <span className="truncate">{currentUser.storage?.database_type || 'PostgreSQL'}</span>
                             </span>
                           </div>
                         </div>

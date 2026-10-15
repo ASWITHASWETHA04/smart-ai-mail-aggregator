@@ -142,6 +142,11 @@ def get_current_user_profile():
     quota_kb = 10240.0  # 10 MB quota
     quota_percentage = round(min((db_storage_kb / quota_kb) * 100, 100), 2)
 
+    db_uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    is_postgres = "postgres" in db_uri.lower()
+    db_type = "PostgreSQL 16/18 (RDS)" if is_postgres else "SQLite ACID Store"
+    db_file = "smartmail_db" if is_postgres else "smartmail.db"
+
     user_dict["storage"] = {
         "used_bytes": int(db_storage_kb * 1024),
         "used_formatted": f"{db_storage_kb} KB",
@@ -149,8 +154,8 @@ def get_current_user_profile():
         "quota_percentage": quota_percentage,
         "drafts_count": drafts_count,
         "drafts_quota": 500,
-        "database_type": "SQLite ACID Store",
-        "database_file": "smartmail.db",
+        "database_type": db_type,
+        "database_file": db_file,
     }
 
     return jsonify({
@@ -187,8 +192,8 @@ def switch_role():
         "quota_percentage": round(min((db_storage_kb / quota_kb) * 100, 100), 2),
         "drafts_count": drafts_count,
         "drafts_quota": 500,
-        "database_type": "SQLite ACID Store",
-        "database_file": "smartmail.db",
+        "database_type": db_type,
+        "database_file": db_file,
     }
 
     return jsonify({

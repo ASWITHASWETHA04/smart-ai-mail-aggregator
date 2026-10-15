@@ -3,7 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 basedir = Path(__file__).resolve().parent.parent
-load_dotenv(basedir / ".env")
+load_dotenv(basedir / ".env", override=True)
 
 INSECURE_DEV_SECRETS = {
     "dev-insecure-key-smartmail-phase0",
@@ -61,7 +61,9 @@ class DevelopmentConfig(BaseConfig):
     DEBUG = True
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-key-smartmail-phase0")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-insecure-jwt-secret-smartmail-phase0")
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", f"sqlite:///{basedir / 'smartmail.db'}")
+    @property
+    def SQLALCHEMY_DATABASE_URI(self):
+        return os.environ.get("DATABASE_URL", f"sqlite:///{basedir / 'smartmail.db'}")
 
 
 class TestingConfig(BaseConfig):

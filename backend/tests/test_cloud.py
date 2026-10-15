@@ -15,8 +15,9 @@ from app.config import DevelopmentConfig, ProductionConfig, TestingConfig
 # ---------------------------------------------------------------------------
 # 1. Configuration Selection & Environment Differentiation
 # ---------------------------------------------------------------------------
-def test_development_config_defaults():
+def test_development_config_defaults(monkeypatch):
     """Verify development configuration uses local SQLite and enables auto-table creation."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     dev_config = DevelopmentConfig()
     assert dev_config.DEBUG is True
     assert "sqlite:///" in dev_config.SQLALCHEMY_DATABASE_URI
