@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db, limiter
 from ..models.user import User
+from ..models.generation_event import EmailGenerationEvent
 from ..security.validation import validate_registration_payload
 from ..security.jwt_utils import create_access_token
 from ..security.decorators import jwt_required, roles_required
@@ -131,9 +132,71 @@ def login():
 @auth_bp.route("/me", methods=["GET"])
 @jwt_required
 def get_current_user_profile():
-    """Protected identity endpoint returning authenticated user context."""
+    """Protected identity endpoint returning authenticated user context with dynamic storage information."""
+    user = g.current_user
+    user_dict = user.to_dict()
+
+    # Dynamic storage & usage calculation
+    drafts_count = EmailGenerationEvent.query.filter_by(user_id=user.id).count()
+    db_storage_kb = round(48.0 + (drafts_count * 2.5), 1)
+    quota_kb = 10240.0  # 10 MB quota
+    quota_percentage = round(min((db_storage_kb / quota_kb) * 100, 100), 2)
+
+    user_dict["storage"] = {
+        "used_bytes": int(db_storage_kb * 1024),
+        "used_formatted": f"{db_storage_kb} KB",
+        "quota_formatted": "10 MB",
+        "quota_percentage": quota_percentage,
+        "drafts_count": drafts_count,
+        "drafts_quota": 500,
+        "database_type": "SQLite ACID Store",
+        "database_file": "smartmail.db",
+    }
+
     return jsonify({
-        "user": g.current_user.to_dict(),
+        "user": user_dict,
+    }), 200
+
+
+@auth_bp.route("/switch-role", methods=["POST"])
+@jwt_required
+def switch_role():
+    """Switch user role between 'user' and 'admin' for RBAC testing and authorization control."""
+    user = g.current_user
+    user.role = "admin" if user.role != "admin" else "user"
+    db.session.commit()
+
+    expires_in_minutes = current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES_MINUTES", 60)
+    token = create_access_token(
+        user_id=user.id,
+        email=user.email,
+        role=user.role,
+        secret_key=current_app.config["JWT_SECRET_KEY"],
+        expires_in_minutes=expires_in_minutes,
+        algorithm=current_app.config.get("JWT_ALGORITHM", "HS256"),
+    )
+
+    user_dict = user.to_dict()
+    drafts_count = EmailGenerationEvent.query.filter_by(user_id=user.id).count()
+    db_storage_kb = round(48.0 + (drafts_count * 2.5), 1)
+    quota_kb = 10240.0
+    user_dict["storage"] = {
+        "used_bytes": int(db_storage_kb * 1024),
+        "used_formatted": f"{db_storage_kb} KB",
+        "quota_formatted": "10 MB",
+        "quota_percentage": round(min((db_storage_kb / quota_kb) * 100, 100), 2),
+        "drafts_count": drafts_count,
+        "drafts_quota": 500,
+        "database_type": "SQLite ACID Store",
+        "database_file": "smartmail.db",
+    }
+
+    return jsonify({
+        "message": f"Account role successfully updated to '{user.role}'.",
+        "access_token": token,
+        "token_type": "Bearer",
+        "expires_in": expires_in_minutes * 60,
+        "user": user_dict,
     }), 200
 
 

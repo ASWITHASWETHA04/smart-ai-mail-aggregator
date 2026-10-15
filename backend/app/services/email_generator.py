@@ -252,11 +252,20 @@ def get_openai_client(api_key: str | None, timeout_seconds: int = 30, max_retrie
         raise AIServiceConfigurationError(
             "AI service configuration is unavailable. Please configure OPENAI_API_KEY in the environment."
         )
-    return OpenAI(
-        api_key=api_key,
-        timeout=timeout_seconds,
-        max_retries=max_retries,
-    )
+    try:
+        import httpx
+        http_client = httpx.Client(timeout=timeout_seconds)
+        return OpenAI(
+            api_key=api_key,
+            http_client=http_client,
+            max_retries=max_retries,
+        )
+    except Exception:
+        return OpenAI(
+            api_key=api_key,
+            timeout=timeout_seconds,
+            max_retries=max_retries,
+        )
 
 
 def generate_email_draft(
