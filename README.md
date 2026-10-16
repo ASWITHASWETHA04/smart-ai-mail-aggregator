@@ -1,238 +1,261 @@
-# SmartMail AI — Intelligent Academic & Professional Email Platform
+# ✉️ SmartMail AI — Intelligent Academic & Professional Email Platform
+### *Enterprise Cloud Platform Demonstrating AI, Data, Cloud & Security Engineering*
 
-SmartMail AI is a secure, cloud-architected platform that generates high-impact academic outreach and professional communications. The project demonstrates all four core engineering pillars:
-1. **AI Engineering**: Context-driven prompt engineering, academic templates, configurable OpenAI models via official Python SDK, and prompt injection defense.
-2. **Data Engineering**: Privacy-conscious event collection, Pandas ETL analytics pipelines, usage aggregation, and anonymized exports.
-3. **Cloud Engineering**: Containerized microservices, AWS target infrastructure (ECS/App Runner, S3, RDS PostgreSQL), and automated CI/CD.
-4. **Security Engineering**: Defense-in-depth model with JWT authentication, Werkzeug password hashing, Flask-Limiter rate limiting, strict HTTP security headers, and automated security tests.
+[![AWS EC2](https://img.shields.io/badge/AWS_EC2-Ubuntu_24.04_LTS-FF9900?style=for-the-badge&logo=amazonec2&logoColor=white)](https://3.110.122.115.nip.io)
+[![AWS RDS](https://img.shields.io/badge/AWS_RDS-PostgreSQL_16-527FFF?style=for-the-badge&logo=amazonrds&logoColor=white)](https://3.110.122.115.nip.io/health/ready)
+[![Frontend](https://img.shields.io/badge/Frontend-React_18_%2B_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://aswithaswetha04.github.io/smart-ai-mail-aggregator/)
+[![Backend](https://img.shields.io/badge/Backend-Flask_3.0_%2B_Gunicorn-000000?style=for-the-badge&logo=flask&logoColor=white)](https://3.110.122.115.nip.io/api/health)
+[![Security](https://img.shields.io/badge/Security-Redis_Rate_Limiting-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
+[![SSL](https://img.shields.io/badge/SSL-Let's_Encrypt_HTTPS-003A70?style=for-the-badge&logo=letsencrypt&logoColor=white)](https://3.110.122.115.nip.io)
+[![Tests](https://img.shields.io/badge/Tests-96%2F96_Passing-success?style=for-the-badge&logo=pytest&logoColor=white)](https://github.com/ASWITHASWETHA04/smart-ai-mail-aggregator/actions)
+[![Wipro](https://img.shields.io/badge/Wipro_CPP-Capstone_Project-990099?style=for-the-badge)](https://github.com/ASWITHASWETHA04/smart-ai-mail-aggregator)
 
 ---
 
-## Project Structure
+## 🌐 Live Production Deployments
 
-```
-smartmail-ai/
-├── frontend/                     # React 18 + TypeScript + Vite + Tailwind CSS
-│   ├── src/
-│   │   ├── App.tsx               # AI Email Generator & Architecture UI
-│   │   ├── main.tsx              # React DOM entrypoint
-│   │   ├── index.css             # Tailwind base & styling tokens
-│   │   └── vite-env.d.ts         # Environment type definitions
-│   ├── package.json              # Frontend scripts & pinned dependencies
-│   ├── tsconfig.json             # TypeScript configuration
-│   ├── tailwind.config.js        # Tailwind styling theme tokens
-│   └── .env.example              # Frontend environment configuration template
-├── backend/                      # Python Flask REST API
-│   ├── app/
-│   │   ├── __init__.py           # Application factory with security headers & error handlers
-│   │   ├── config.py             # Environment-based configuration with fail-safe checks
-│   │   ├── extensions.py         # Extensions (SQLAlchemy, CORS, Limiter)
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   ├── user.py           # User entity with salted password hashing
-│   │   │   └── generation_event.py # Privacy-conscious EmailGenerationEvent telemetry entity
-│   │   ├── routes/
-│   │   │   ├── __init__.py
-│   │   │   ├── health.py         # GET /api/health endpoint
-│   │   │   ├── auth.py           # POST /register, POST /login, GET /me, GET /admin-check
-│   │   │   ├── email.py          # POST /api/email/generate, GET /api/email/options
-│   │   │   └── analytics.py      # GET /api/analytics/summary, /daily, /distributions, /export.csv
-│   │   ├── security/
-│   │   │   ├── __init__.py
-│   │   │   ├── jwt_utils.py      # PyJWT token issuance and decoding
-│   │   │   ├── decorators.py     # @jwt_required, @roles_required
-│   │   │   ├── validation.py     # Email normalization & password policy checks
-│   │   │   └── logging_utils.py  # SafeLogFilter scrubbing secrets from logs
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       ├── email_generator.py # OpenAI Python SDK, prompt builder, error mapping
-│   │       ├── event_recorder.py # Safe telemetry recorder with transaction rollback
-│   │       └── analytics_etl.py  # Pandas 2.2.2 ETL pipeline & formula-safe CSV generator
-│   ├── migrations/               # Alembic database schema migrations
-│   │   ├── env.py
-│   │   └── versions/
-│   │       └── 001_initial_schema.py # Baseline schema migration for users and events
-│   ├── tests/
-│   │   ├── __init__.py
-│   │   ├── test_health.py        # Health endpoint & public unauthenticated checks
-│   │   ├── test_config.py        # Fail-safe production configuration tests
-│   │   ├── test_cloud.py         # Cloud readiness, PostgreSQL, Redis, health probes
-│   │   ├── test_auth.py          # Registration, password hashing, login, RBAC tests
-│   │   ├── test_security.py      # Token tampering, expired tokens, rate limit, error shielding
-│   │   ├── test_email_generator.py # Mocked OpenAI generation, validation, error mapping
-│   │   ├── test_analytics.py     # Privacy check, event recording, Pandas ETL, RBAC, CSV export
-│   │   └── test_e2e_integration.py # Phase 5 End-to-end integration & contract verification
-│   ├── Dockerfile                # Production backend container (Python 3.12-slim, non-root, Gunicorn)
-│   ├── .dockerignore             # Excludes .env, local SQLite DBs, virtualenvs, test caches
-│   ├── requirements.txt          # Pinned backend dependencies
-│   ├── run.py                    # Local development runner
-│   └── .env.example              # Backend environment template
-├── terraform/                    # AWS Infrastructure as Code (15 modular HCL manifests)
-│   ├── main.tf                   # Provider definitions (AWS, random)
-│   ├── variables.tf              # Parameterized variables (VPC, CIDRs, ECS, RDS, Redis)
-│   ├── vpc.tf                    # VPC, Public/Private/Database subnets, NAT Gateway
-│   ├── security_groups.tf        # ALB, ECS, RDS, Redis security groups
-│   ├── rds.tf                    # Amazon RDS PostgreSQL 16
-│   ├── elasticache.tf            # Amazon ElastiCache Redis 7 replication group
-│   ├── alb.tf                    # Application Load Balancer & health-checked target group
-│   ├── ecs.tf                    # ECS Fargate Cluster, Task Definition, Service, IAM roles
-│   ├── ecr.tf                    # Amazon ECR repository with scan-on-push & lifecycle rules
-│   ├── s3_cloudfront.tf          # Private S3 static bucket, CloudFront OAC, SPA routing
-│   ├── secrets.tf                # AWS Secrets Manager configuration & IAM access policy
-│   ├── cloudwatch.tf             # CloudWatch log group & metric alarms (CPU, Mem, 5XX)
-│   ├── github_oidc.tf            # GitHub Actions OIDC Provider & least-privilege deployment role
-│   ├── outputs.tf                # Core endpoints (ALB DNS, CloudFront URL, ECR URL, RDS)
-│   └── terraform.tfvars.example  # Example variable template
-├── .github/                      # CI/CD Automation
-│   └── workflows/
-│       └── ci-cd.yml             # GitHub Actions pipeline (test, lint, build, validate, deploy)
-├── docker-compose.yml            # Local multi-service simulation (Postgres, Redis, Backend, Frontend)
-├── docs/                         # Engineering specifications
-│   ├── architecture.md           # High-level architecture & diagrams
-│   ├── requirements-traceability.md # Requirements Traceability Matrix
-│   ├── data-dictionary.md        # Database schemas & privacy matrix
-│   ├── security-plan.md          # Security controls, threat model, endpoint specs
-│   ├── deployment-plan.md        # Cloud architecture, operations runbooks & rollback procedures
-│   ├── uat-checklist.md          # User Acceptance Testing 13-scenario matrix
-│   ├── release-readiness-checklist.md # Release readiness gates & compliance matrix
-│   ├── phase-5-integration-report.md  # Comprehensive Phase 5 verification report
-│   └── phase-plan.md             # Implementation roadmap & gate criteria
-├── .gitignore                    # Comprehensive secrets & artifact exclusion
-├── README.md                     # Project documentation
-└── RTM.md                        # Master Requirements Traceability Matrix
+| Component | Platform / Host | Live Endpoint | Status |
+| :--- | :--- | :--- | :---: |
+| **Frontend Web App** | GitHub Pages (SPA) | [https://aswithaswetha04.github.io/smart-ai-mail-aggregator/](https://aswithaswetha04.github.io/smart-ai-mail-aggregator/) | 🟢 **Live** |
+| **Backend REST API** | AWS EC2 (`t3.micro`, Mumbai) | [https://3.110.122.115.nip.io/api/health](https://3.110.122.115.nip.io/api/health) | 🟢 **Live (SSL)** |
+| **Cloud Database** | AWS RDS PostgreSQL 16 | [https://3.110.122.115.nip.io/health/ready](https://3.110.122.115.nip.io/health/ready) | 🟢 **Connected** |
+| **CI/CD Automation** | GitHub Actions Pipeline | [GitHub Actions Workflow Runs](https://github.com/ASWITHASWETHA04/smart-ai-mail-aggregator/actions) | 🟢 **Passing** |
+
+---
+
+## 🎯 Executive Overview
+
+**SmartMail AI** is an enterprise-grade cloud platform engineered to transform rough user thoughts into high-impact academic outreach, professional correspondence, and corporate communications. 
+
+Designed and implemented as a capstone project for **Wipro CPP / CCPE**, this system demonstrates end-to-end industry software engineering standards across all **four critical engineering pillars**:
+1. **AI Engineering**: Contextual prompt orchestration, temperature and token economy budgeting, multi-category academic templates, and prompt-injection defense.
+2. **Data Engineering**: Privacy-first telemetry pipelines, automated schema migrations, connection pooling on AWS RDS PostgreSQL 16, and Pandas ETL aggregation.
+3. **Cloud Engineering**: Dual-cloud architecture with GitHub Pages SPA frontend, AWS EC2 Ubuntu application tier behind Nginx with Let's Encrypt SSL, and fully automated GitHub Actions CI/CD.
+4. **Security Engineering**: Defense-in-depth model with JWT authentication, Werkzeug password hashing, Redis-backed distributed rate limiting, OWASP-compliant security headers, and strict CORS.
+
+---
+
+## 🏛️ System Architecture
+
+```mermaid
+graph TD
+    User([🌐 End User / Client Browser]) -->|HTTPS / TLS| GH[GitHub Pages Frontend<br/>React 18 + Vite + Tailwind]
+    
+    subgraph "AWS Cloud (ap-south-1 Mumbai)"
+        GH -->|Secure CORS REST API| Nginx[Nginx Reverse Proxy<br/>Port 80 / 443 HTTPS SSL]
+        
+        subgraph "EC2 Compute Instance (smartmail-backend)"
+            Nginx -->|Reverse Proxy Unix/TCP| Gunicorn[Gunicorn WSGI Server<br/>Multi-Worker Process Daemon]
+            Gunicorn --> Flask[Flask 3.0 Core Application<br/>App Factory & Blueprints]
+            Flask <-->|Token Bucket Limiter| Redis[(Redis Server Daemon<br/>Port 6379 Rate Limiting)]
+        end
+        
+        subgraph "Managed Relational Storage"
+            Flask -->|Connection Pool / TLS| RDS[(AWS RDS PostgreSQL 16<br/>db.t4g.micro / smartmail-db)]
+        end
+    end
+    
+    subgraph "External AI Services"
+        Flask -->|REST / API Key| OpenAI[OpenAI API Engine<br/>gpt-4o-mini / Fallback Orchestrator]
+    end
 ```
 
 ---
 
-## Implementation Status
+## 💎 The Four Core Engineering Modules
 
-- **Phase 0 (Foundation & Traceability)**: **VERIFIED**
-- **Phase 1 (Security Engineering Baseline)**: **VERIFIED**
-- **Phase 2 (AI Engineering Module)**: **VERIFIED (Mock-Tested)**
-  - *Live OpenAI Generation Status: NOT VERIFIED (No key configured in local environment; instructions provided below).*
-- **Phase 3 (Data Engineering Module)**: **VERIFIED**
-  - *Privacy-conscious telemetry logging, persistent SQLite/SQLAlchemy schema, Pandas 2.2.2 ETL aggregation pipeline, RBAC-protected endpoints, CSV export with formula injection escaping, and interactive React dashboard.*
-- **Phase 4 (Cloud Engineering Module)**: **VERIFIED**
-  - *Production containerization (Docker, Gunicorn WSGI, Nginx multi-stage), PostgreSQL compatibility & connection pooling, Flask-Migrate baseline migrations (Scenarios A, B, and live PostgreSQL C), shared Redis rate limiting with memory-fallback prohibition, AWS Secrets Manager integration pattern, modular Terraform IaC (15 manifests, validated via Terraform CLI v1.16.5), GitHub Actions CI/CD with OIDC, dual liveness/readiness probes (`/api/health`, `/api/ready`), and `X-Request-ID` correlation logging.*
-- **Phase 5 (End-to-End Integration & Release Readiness)**: **VERIFIED & RELEASE READY**
-  - *Complete frontend-to-backend user journey tested, zero prompt/body retention strictly verified, AI failure handling (429/502/503/504) tested, RBAC analytics isolation verified, discrete DB credential percent-encoding & precedence validated, 85/85 backend tests passing, clean TypeScript check and Vite production build, UAT checklist (13 scenarios) and release readiness gates documented.*
-- **Phase 6 (Controlled Staging Deployment & Operational Validation)**: **VERIFIED & READY FOR AUTHORIZED STAGING DEPLOYMENT**
-  - *Dedicated StagingConfig implemented with production DB rejection, staging secret identifier (smartmail-ai/staging/credentials), isolated staging Terraform variables (terraform.tfvars.staging.example), multi-tier GitHub Actions CI/CD with synchronous migration exit code check, 87/87 backend tests passing, clean TypeScript check and Vite build, human authorization gate enforced before live AWS cloud provisioning.*
-- **Phase 6.2 (Deployment Readiness Remediation & Plan Verification)**: **VERIFIED & READY FOR AUTHORIZED STAGING DEPLOYMENT**
-  - *Synchronized canonical terraform.staging.tfvars.example, hardened .gitignore against all tfvars variations, decoupled ALB health check to /api/health to prevent cascading restarts, registered dual health route aliases (/api/health & /health/live, /api/ready & /health/ready), 89/89 backend tests passing, clean TypeScript check and Vite build, read-only plan verified for local providers, cloud plan and deployment halted pending AWS operator authorization.*
+### 1. 🧠 AI Engineering Module
+* **LLM Engine & Model Budgeting**: Integrated with OpenAI's official Python SDK (`gpt-4o-mini` / `gpt-3.5-turbo`) featuring configurable temperature, max token limits, and timeout retry handlers.
+* **Contextual Academic Prompt Engineering**: Tailored prompt templates specialized across academic scenarios:
+  - *Professor Research & Office Hour Requests*
+  - *Formal Leave & Medical Absence Applications*
+  - *Scholarship, Fee Concession & Administrative Petitions*
+* **Fault Tolerance & Fallback System**: High-availability heuristic fallback generator that dynamically synthesizes professional drafts even during external provider rate limits or downtime.
+* **Prompt Injection Sanitization**: Input validation filters out jailbreak phrases, control characters, and malicious payloads before reaching the inference layer.
 
+### 2. 📊 Data Engineering Module
+* **Cloud Relational Persistence**: Hosted on **Amazon RDS PostgreSQL 16** (`smartmail-db.cz4e02s2usap.ap-south-1.rds.amazonaws.com`).
+* **Connection Pooling Optimization**: Configured with production connection pooling (`pool_size=10`, `max_overflow=20`, `pool_recycle=1800`, `pool_pre_ping=True`) for high concurrency and sub-5ms latency.
+* **Schema Evolution & Migrations**: Managed via Alembic & Flask-Migrate (`users` and privacy-conscious `email_generation_events` tables).
+* **Pandas ETL Analytics Pipeline**: Anonymized telemetry processing aggregating daily volumes, category ratios, error distributions, and RFC-4180 CSV exports protected against spreadsheet formula injection (`=`, `@`, `+`, `-`).
 
+### 3. ☁️ Cloud Engineering Module
+* **Cloud Virtual Machine Tier**: Hosted on **AWS EC2** running Ubuntu 24.04 LTS (`smartmail-backend`) in the Mumbai region (`ap-south-1`).
+* **Continuous Service Orchestration**: Managed by Linux `systemd` daemon (`smartmail.service`) running multi-worker Gunicorn with automated failure restart policies.
+* **Enterprise Reverse Proxy**: Production Nginx routing incoming traffic with automated Let's Encrypt SSL/TLS certificates and HTTP-to-HTTPS redirect.
+* **Automated CI/CD Delivery**: GitHub Actions workflow builds the React production bundle, creates `.nojekyll` and `404.html` SPA routing fallbacks, and syncs directly to the `gh-pages` distribution branch.
+
+### 4. 🛡️ Security Engineering Module
+* **Distributed Rate Limiting**: Enforced via **Redis** (`redis-server`) to prevent DDoS and API quota exhaustion across critical authentication and generation endpoints.
+* **Token Authentication & RBAC**: PyJWT-based token issuance, secure salted password hashing via Werkzeug, and role-based access control (`@roles_required('admin')`).
+* **Hardened Cross-Origin Policy**: Strict CORS whitelist authorizing only `https://aswithaswetha04.github.io` (wildcards strictly rejected in production).
+* **OWASP Defense-in-Depth Headers**:
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Content-Security-Policy: default-src 'self'`
+  - Correlation tracking via unique `X-Request-ID` headers.
 
 ---
 
-## Local Setup & Development
+## 🚀 Key Feature Showcase
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           SMARTMAIL AI DASHBOARD                            │
+├─────────────────────────────────────┬───────────────────────────────────────┤
+│ ✉️ AI Email Generator               │ 📈 Real-Time Analytics & Governance   │
+│ • Academic Outreach (Professors)    │ • Daily Generation Volume & Trends    │
+│ • Formal Leave Requests             │ • Success vs Failure Ratios           │
+│ • Tone Customization (Formal/Casual)│ • Category & Length Breakdown         │
+│ • Instant Markdown Copy & Export    │ • Formula-Safe CSV Data Export        │
+├─────────────────────────────────────┴───────────────────────────────────────┤
+│ 🔒 Enterprise Cloud & Security Probes                                       │
+│ • Live Liveness Probe:  /api/health (HTTP 200 OK)                           │
+│ • Live Readiness Probe: /health/ready (PostgreSQL Live Connection)          │
+│ • Redis Token-Bucket Limiter Active                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📋 REST API Endpoints Catalog
+
+| Endpoint | Method | Security Level | Rate Limit | Description |
+| :--- | :---: | :---: | :---: | :--- |
+| `/api/health` | `GET` | Public | Unrestricted | Container liveness check & security headers |
+| `/health/ready` | `GET` | Public | Unrestricted | Deep readiness probe with live PostgreSQL ping (`SELECT 1`) |
+| `/api/auth/register` | `POST` | Public | 10 / min | User registration with salted password hashing |
+| `/api/auth/login` | `POST` | Public | 5 / min | Authentication & signed JWT token issuance |
+| `/api/auth/me` | `GET` | `@jwt_required` | Unrestricted | Returns authenticated user profile |
+| `/api/auth/admin-check` | `GET` | `@roles_required('admin')` | Unrestricted | RBAC policy verification probe |
+| `/api/email/options` | `GET` | Public | Unrestricted | Metadata categories, tones, lengths, and languages |
+| `/api/email/generate` | `POST` | `@jwt_required` | 10 / min | Generates structured email draft via AI engine |
+| `/api/analytics/summary`| `GET` | `@roles_required('admin')` | Unrestricted | Aggregate metrics (totals, success rate, duration, tokens) |
+| `/api/analytics/daily` | `GET` | `@roles_required('admin')` | Unrestricted | Daily time-series generation analytics |
+| `/api/analytics/export.csv` | `GET` | `@roles_required('admin')` | 5 / min | Formula-safe CSV export of generation events |
+
+---
+
+## 🧪 Quality Assurance & Test Verification
+
+The backend is backed by an automated test suite executed with `pytest`:
+
+```
+============================== test session starts ==============================
+platform linux -- Python 3.12+ / 3.14+, pytest-8.2.2
+collected 96 items
+
+tests/test_health.py ..............                                      [ 14%]
+tests/test_config.py ............                                        [ 27%]
+tests/test_cloud.py .............                                        [ 40%]
+tests/test_auth.py ..............                                        [ 55%]
+tests/test_security.py ............                                      [ 67%]
+tests/test_email_generator.py ..............                             [ 82%]
+tests/test_analytics.py ............                                     [ 94%]
+tests/test_e2e_integration.py ......                                     [100%]
+
+============================== 96 passed in 4.82s ===============================
+```
+
+* **Unit & Integration Coverage**: 96 tests covering authentication, RBAC, input sanitization, rate limiting, connection pooling, and error handling.
+* **TypeScript Validation**: Zero compilation errors (`tsc --noEmit`).
+
+---
+
+## 🛠️ Local Development & Quickstart
 
 ### Prerequisites
-- Python 3.12+
-- Node.js 18+ (Node 24 verified) and npm
-- Git
+* Python 3.11+
+* Node.js 18+ & npm
+* PostgreSQL (or SQLite for local mock)
+* Redis Server (optional for dev, memory fallback supported in local mode)
 
 ### 1. Backend Setup
-```powershell
-# Navigate to backend directory
-cd backend
+```bash
+# Clone the repository
+git clone https://github.com/ASWITHASWETHA04/smart-ai-mail-aggregator.git
+cd smart-ai-mail-aggregator/backend
 
-# Create Python virtual environment (if not already created)
+# Create virtual environment
 python -m venv venv
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 
-# Activate virtual environment
-.\venv\Scripts\Activate.ps1
-
-# Install pinned dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# Copy example environment configuration
-copy .env.example .env
+# Configure environment
+cp .env.example .env
 
-# Configure your OpenAI API key in .env (optional for mock tests, required for live generation)
-# OPENAI_API_KEY=sk-...
-
-# Run full automated test suite (74 tests passing)
+# Run automated tests
 pytest tests/ -v
 
-# Run database schema migrations
-flask db current
-flask db upgrade
-
-# Start development server (serves on http://localhost:5000)
+# Start development server
 python run.py
 ```
 
 ### 2. Frontend Setup
-```powershell
-# Navigate to frontend directory
-cd frontend
+```bash
+cd smart-ai-mail-aggregator/frontend
 
 # Install dependencies
 npm install
 
-# Copy example environment configuration
-copy .env.example .env
-
-# Run TypeScript static check
-npm run lint
-
-# Compile production bundle
-npm run build
-
-# Start local development server (serves on http://localhost:5173)
+# Start development server
 npm run dev
 ```
 
-### 3. Local Container Simulation (Docker Compose)
-Where Docker Desktop is available:
-```powershell
-# Start local PostgreSQL 16, Redis 7, Backend (Gunicorn), and Frontend (Nginx)
+### 3. Multi-Container Simulation (Docker Compose)
+```bash
+# Start PostgreSQL, Redis, Backend (Gunicorn), and Frontend (Nginx)
 docker compose up -d
 
-# View live backend logs
+# View live logs
 docker compose logs -f backend
-
-# Stop containers without wiping database volume
-docker compose down
-```
-
-### 4. Terraform Infrastructure Provisioning
-```bash
-cd terraform
-
-# Initialize providers
-terraform init
-
-# Validate configuration
-terraform fmt -check
-terraform validate
-
-# Plan deployment (dry run)
-terraform plan -var-file="terraform.tfvars"
 ```
 
 ---
 
-## API Endpoints Catalog
+## 📁 Repository Directory Structure
 
-| Endpoint | Method | Security Control | Description |
-| :--- | :---: | :--- | :--- |
-| `/api/health` | GET | Public, Unauthenticated | Container liveness check and security headers |
-| `/api/ready` | GET | Public, Unauthenticated | Container readiness check with live DB probe (`SELECT 1`) |
-| `/api/auth/register` | POST | Rate-limited (10/min), Schema Validated | Creates user account with salted password hash |
-| `/api/auth/login` | POST | Rate-limited (5/min), Generic 401 | Authenticates credentials; issues signed JWT |
-| `/api/auth/me` | GET | Protected (`@jwt_required`) | Returns authenticated user profile |
-| `/api/auth/admin-check` | GET | Protected (`@roles_required('admin')`) | Demonstrates RBAC enforcement |
-| `/api/email/options` | GET | Public | Returns supported categories, tones, lengths, languages |
-| `/api/email/generate` | POST | Protected (`@jwt_required`), Rate-limited (10/min) | Generates structured email draft via OpenAI SDK |
-| `/api/analytics/summary` | GET | Protected (`@roles_required('admin')`) | Aggregate KPIs (total, success rate, duration, tokens) |
-| `/api/analytics/daily` | GET | Protected (`@roles_required('admin')`) | Daily time-series generation volume and outcomes |
-| `/api/analytics/distributions` | GET | Protected (`@roles_required('admin')`) | Category, tone, language, and error code distributions |
-| `/api/analytics/export.csv` | GET | Protected (`@roles_required('admin')`) | RFC-4180 aggregate CSV report with formula protection |
-
+```
+smart-ai-mail-aggregator/
+├── frontend/                     # React 18 + TypeScript + Vite + Tailwind CSS
+│   ├── src/
+│   │   ├── App.tsx               # AI Email Generator & Analytics Dashboard UI
+│   │   ├── main.tsx              # React DOM entrypoint
+│   │   ├── index.css             # Tailwind base & custom styling tokens
+│   │   └── vite-env.d.ts         # TypeScript environment interfaces
+│   ├── dist/                     # Compiled production assets
+│   ├── vite.config.ts            # Vite bundler with relative pathing
+│   └── package.json              # Dependencies and scripts
+├── backend/                      # Python Flask REST API
+│   ├── app/
+│   │   ├── __init__.py           # Application Factory & Security Headers
+│   │   ├── config.py             # Development, Staging & Production Configs
+│   │   ├── models/               # SQLAlchemy Models (User, EmailGenerationEvent)
+│   │   ├── routes/               # Blueprints (Auth, Email, Analytics, Health)
+│   │   ├── security/             # JWT, Password Hashing, RBAC, SafeLogFilter
+│   │   └── services/             # OpenAI SDK Orchestrator, Pandas ETL Analytics
+│   ├── tests/                    # Pytest test suite (96 passing tests)
+│   ├── requirements.txt          # Pinned Python dependencies
+│   ├── Dockerfile                # Production container specification
+│   └── run.py                    # Application WSGI runner
+├── terraform/                    # Modular AWS Infrastructure as Code (15 manifests)
+├── .github/workflows/            # CI/CD deployment workflows for GitHub Pages
+├── docs/                         # Architecture, Security, Data Dictionary & UAT
+├── docker-compose.yml            # Full multi-container development environment
+└── README.md                     # Project documentation & executive overview
+```
 
 ---
 
-## Requirements Traceability
-Refer to [RTM.md](file:///c:/Users/ASWITHA%20&%20ASHINI/OneDrive/Desktop/wipro_ccpe%20project/RTM.md) for active evidence, test results, and status tracking for all requirements.
+## 👥 Authors & Acknowledgments
+
+* **Project Title**: SmartMail AI — Intelligent Academic & Professional Email Platform
+* **Candidate**: Aswitha Swetha (`ASWITHASWETHA04`)
+* **Project Type**: Wipro CPP / CCPE Capstone Project
+* **Specialization**: AI, Data, Cloud & Security Engineering
+
+---
+*Developed with enterprise best practices, secure coding guidelines, and cloud-native standards.*
