@@ -13,4 +13,6 @@ limiter = Limiter(
     storage_uri="memory://",
     default_limits=["100 per hour"],
     headers_enabled=True,
+    swallow_errors=True,
+    in_memory_fallback=["100 per hour"],
 )

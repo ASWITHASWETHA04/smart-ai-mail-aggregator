@@ -33,6 +33,8 @@ class BaseConfig:
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_STRATEGY = "moving-window"
     RATELIMIT_DEFAULT = "100 per hour"
+    RATELIMIT_SWALLOW_ERRORS = True
+    RATELIMIT_IN_MEMORY_FALLBACK = ["100 per hour"]
 
     # OpenAI configuration
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
