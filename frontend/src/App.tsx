@@ -119,7 +119,7 @@ export const App: React.FC = () => {
   // - In production/staging builds, use the build-time VITE_API_BASE_URL (never silent localhost fallback).
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim() !== '')
     ? import.meta.env.VITE_API_BASE_URL.trim()
-    : (import.meta.env.DEV ? 'http://localhost:5000' : '');
+    : (import.meta.env.DEV ? 'http://localhost:5000' : 'https://3.110.122.115.nip.io');
 
   // Navigation & View state
   const [activeTab, setActiveTab] = useState<'generator' | 'analytics'>('generator');
