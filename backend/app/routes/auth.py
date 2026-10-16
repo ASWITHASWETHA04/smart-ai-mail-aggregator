@@ -129,14 +129,8 @@ def login():
     }), 200
 
 
-@auth_bp.route("/me", methods=["GET"])
-@jwt_required
-def get_current_user_profile():
-    """Protected identity endpoint returning authenticated user context with dynamic storage information."""
-    user = g.current_user
-    user_dict = user.to_dict()
-
-    # Dynamic storage & usage calculation
+def _get_user_storage_dict(user) -> dict:
+    """Calculate dynamic storage metrics for a user."""
     drafts_count = EmailGenerationEvent.query.filter_by(user_id=user.id).count()
     db_storage_kb = round(48.0 + (drafts_count * 2.5), 1)
     quota_kb = 10240.0  # 10 MB quota
@@ -147,7 +141,7 @@ def get_current_user_profile():
     db_type = "PostgreSQL 16/18 (RDS)" if is_postgres else "SQLite ACID Store"
     db_file = "smartmail_db" if is_postgres else "smartmail.db"
 
-    user_dict["storage"] = {
+    return {
         "used_bytes": int(db_storage_kb * 1024),
         "used_formatted": f"{db_storage_kb} KB",
         "quota_formatted": "10 MB",
@@ -157,6 +151,15 @@ def get_current_user_profile():
         "database_type": db_type,
         "database_file": db_file,
     }
+
+
+@auth_bp.route("/me", methods=["GET"])
+@jwt_required
+def get_current_user_profile():
+    """Protected identity endpoint returning authenticated user context with dynamic storage information."""
+    user = g.current_user
+    user_dict = user.to_dict()
+    user_dict["storage"] = _get_user_storage_dict(user)
 
     return jsonify({
         "user": user_dict,
@@ -182,19 +185,7 @@ def switch_role():
     )
 
     user_dict = user.to_dict()
-    drafts_count = EmailGenerationEvent.query.filter_by(user_id=user.id).count()
-    db_storage_kb = round(48.0 + (drafts_count * 2.5), 1)
-    quota_kb = 10240.0
-    user_dict["storage"] = {
-        "used_bytes": int(db_storage_kb * 1024),
-        "used_formatted": f"{db_storage_kb} KB",
-        "quota_formatted": "10 MB",
-        "quota_percentage": round(min((db_storage_kb / quota_kb) * 100, 100), 2),
-        "drafts_count": drafts_count,
-        "drafts_quota": 500,
-        "database_type": db_type,
-        "database_file": db_file,
-    }
+    user_dict["storage"] = _get_user_storage_dict(user)
 
     return jsonify({
         "message": f"Account role successfully updated to '{user.role}'.",
